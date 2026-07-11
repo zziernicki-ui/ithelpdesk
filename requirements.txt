@@ -6,3 +6,4 @@ chromadb
 pysqlite3-binary
 anthropic
 python-dotenv
+azure-monitor-opentelemetry
