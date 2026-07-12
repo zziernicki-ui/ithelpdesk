@@ -1,13 +1,18 @@
 import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 load_dotenv()
 
+token_provider = get_bearer_token_provider(
+    DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default"
+)
+
 client = AzureOpenAI(
-    api_key=os.environ["AZURE_OPENAI_KEY"],
+    azure_ad_token_provider=token_provider,
     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-    api_version="2024-10-21",
+    api_version="2025-04-01-preview",
 )
 
 SYSTEM_PROMPT = """You are a technical support assistant. Your job is to synthesize 
