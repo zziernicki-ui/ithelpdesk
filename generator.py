@@ -36,7 +36,7 @@ def generate_answer(query, retrieved):
 
     response = client.chat.completions.create(
         model=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
-        max_tokens=500,
+        max_completion_tokens=800,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {
