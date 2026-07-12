@@ -1,8 +1,8 @@
 fastapi
-uvicorn[standard]
+uvicorn
 gunicorn
 uvicorn-worker
-anthropic
+openai
 python-dotenv
 azure-monitor-opentelemetry
 azure-search-documents
