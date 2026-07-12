@@ -6,3 +6,4 @@ openai
 python-dotenv
 azure-monitor-opentelemetry
 azure-search-documents
+azure-identity
