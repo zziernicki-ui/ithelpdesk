@@ -21,7 +21,7 @@ app = FastAPI(title="RAG Troubleshooting API")
 # Allow requests from any origin (for testing; restrict in production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://<your-app>.azurewebsites.net"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
