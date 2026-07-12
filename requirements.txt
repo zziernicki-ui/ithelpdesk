@@ -2,8 +2,7 @@ fastapi
 uvicorn[standard]
 gunicorn
 uvicorn-worker
-chromadb
-pysqlite3-binary
 anthropic
 python-dotenv
 azure-monitor-opentelemetry
+azure-search-documents
