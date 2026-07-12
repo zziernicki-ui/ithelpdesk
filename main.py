@@ -10,8 +10,6 @@ from pydantic import BaseModel
 load_dotenv()
 
 # Import RAG components
-from knowledge_base import ARTICLES
-from chunker import chunk_articles
 from retriever import Retriever
 from generator import generate_answer
 
@@ -30,8 +28,7 @@ app.add_middleware(
 )
 
 # Initialize RAG on startup
-chunks = chunk_articles(ARTICLES, chunk_size=150)
-retriever = Retriever(chunks)
+retriever = Retriever(None)
 
 
 class QueryRequest(BaseModel):
