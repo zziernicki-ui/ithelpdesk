@@ -1,12 +1,14 @@
-# generator.py
-
 import os
 from dotenv import load_dotenv
-from anthropic import Anthropic
+from openai import AzureOpenAI
 
 load_dotenv()
 
-client = Anthropic()
+client = AzureOpenAI(
+    api_key=os.environ["AZURE_OPENAI_KEY"],
+    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+    api_version="2024-10-21",
+)
 
 SYSTEM_PROMPT = """You are a technical support assistant. Your job is to synthesize 
 troubleshooting advice from knowledge base articles.
@@ -17,12 +19,11 @@ the provided passages—do not add external knowledge."""
 
 
 def generate_answer(query, retrieved):
-    """Use Claude to synthesize an answer from retrieved chunks."""
-    
+    """Use Azure OpenAI to synthesize an answer from retrieved chunks."""
+
     if not retrieved:
         return "I couldn't find a relevant article for that. Try rephrasing the issue."
-    
-    # Build context from retrieved chunks.
+
     context_parts = []
     for article, score in retrieved:
         source_id = article.get("source_id", article["id"])
@@ -30,15 +31,14 @@ def generate_answer(query, retrieved):
         context_parts.append(
             f"[{source_type} - {source_id}]\n{article['content']}"
         )
-    
+
     context = "\n\n".join(context_parts)
-    
-    # Call Claude.
-    message = client.messages.create(
-        model="claude-opus-4-5",
+
+    response = client.chat.completions.create(
+        model=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
         max_tokens=500,
-        system=SYSTEM_PROMPT,
         messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
                 "content": f"""User problem: {query}
@@ -47,18 +47,17 @@ Knowledge base passages:
 {context}
 
 Please provide clear troubleshooting steps."""
-            }
+            },
         ],
     )
-    
-    answer = message.content[0].text
-    
-    # Add citations.
+
+    answer = response.choices[0].message.content
+
     citations = "\n\n--- Sources ---"
     for article, score in retrieved:
         source_id = article.get("source_id", article["id"])
         title = article["title"]
         source_type = article.get("source_type", "unknown").upper()
         citations += f"\n• {title} ({source_type} - {source_id}, relevance: {score:.2f})"
-    
+
     return answer + citations
