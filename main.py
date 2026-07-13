@@ -13,8 +13,8 @@ load_dotenv()
 from retriever import Retriever
 from generator import generate_answer
 
-from azure.monitor.opentelemetry import configure_azure_monitor
-configure_azure_monitor()
+if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
+    configure_azure_monitor()
 
 app = FastAPI(title="RAG Troubleshooting API")
 
