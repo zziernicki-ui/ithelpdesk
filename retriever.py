@@ -1,15 +1,15 @@
 import os
-from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizableTextQuery
 
 
 class Retriever:
-    def __init__(self, articles=None):  # 'articles' kept so main.py doesn't break
+    def __init__(self, articles=None):
         self.client = SearchClient(
             endpoint=os.environ["SEARCH_ENDPOINT"],
             index_name=os.environ.get("SEARCH_INDEX", "kb-index"),
-            credential=AzureKeyCredential(os.environ["SEARCH_KEY"]),
+            credential=DefaultAzureCredential(),
         )
 
     def search(self, query, top_k=2):
