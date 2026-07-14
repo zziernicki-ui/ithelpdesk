@@ -2,9 +2,9 @@
 
 A chat assistant that answers IT support questions ("my Wi-Fi keeps dropping", "Outlook won't sync") by retrieving relevant knowledge base articles and synthesizing step-by-step troubleshooting instructions with an LLM — with citations back to the source articles.
 
-**Live demo:** https://zacks-help-desk.azurewebsites.net
+**Live demo:** [Zack's IT Help Desk](https://zacks-help-desk-byakb6ayhag2g9e0.centralus-01.azurewebsites.net/)
 
-Originally built as a self-contained Python RAG pipeline (ChromaDB + local files + direct Anthropic API), then fully migrated to Azure managed services: cloud search index, managed AI models, CI/CD, and production monitoring.
+Originally built as a self-contained Python RAG pipeline (ChromaDB + local files + direct Anthropic API), then fully migrated to Azure managed services — cloud search index, managed AI models, CI/CD, production monitoring — and finally hardened to **zero-secret authentication**: the app holds no API keys and proves its identity to Azure services via Managed Identity.
 
 ## Architecture
 
@@ -13,6 +13,7 @@ GitHub (push to main)
    │  GitHub Actions: build React frontend + deploy
    ▼
 Azure App Service ── FastAPI backend + React chat UI
+   │      └─ system-assigned Managed Identity (no API keys anywhere)
    │
    ├─► Azure AI Search ("kb-index") ── hybrid vector + keyword retrieval
    │        ▲  indexer with integrated vectorization
@@ -23,7 +24,9 @@ Azure App Service ── FastAPI backend + React chat UI
    │
    ├─► Azure OpenAI ── gpt-5-mini (answer generation)
    │
-   └─► Application Insights ── request/failure telemetry, live metrics
+   ├─► Application Insights ── request/failure telemetry, live metrics
+   │
+   └─► Key Vault ── remaining config secrets, via Key Vault references
 ```
 
 ## How a question gets answered
@@ -45,6 +48,8 @@ The knowledge base itself never touches the app: articles live in Blob Storage, 
 | Azure OpenAI | `text-embedding-3-small` (indexing & queries), `gpt-5-mini` (generation) |
 | Blob Storage | Knowledge base source files |
 | Application Insights | Telemetry, failure traces, availability monitoring |
+| Managed Identity + Entra ID | Keyless auth from the app to AI Search and Azure OpenAI (RBAC role assignments) |
+| Key Vault | Stores the remaining config secret, injected via Key Vault references |
 
 ## Repository structure
 
@@ -59,23 +64,27 @@ The knowledge base itself never touches the app: articles live in Blob Storage, 
 └── requirements.txt
 ```
 
-## Configuration
+## Configuration & authentication
 
-The app reads all secrets and endpoints from environment variables (App Service settings in production, `.env` locally — never committed):
+There are **no API keys** in code, in the repo, or in App Service settings. The app authenticates to Azure OpenAI and AI Search with its system-assigned **Managed Identity** (`DefaultAzureCredential`), authorized through Azure RBAC roles (Cognitive Services OpenAI User, Foundry User, Search Index Data Reader) assigned at the resource-group scope. The one remaining sensitive value — the Application Insights connection string — lives in **Key Vault** and is injected through a Key Vault reference.
+
+The only plain environment variables are addresses, not secrets:
 
 | Variable | Purpose |
 |---|---|
 | `SEARCH_ENDPOINT` | Azure AI Search URL |
-| `SEARCH_KEY` | AI Search admin key |
 | `SEARCH_INDEX` | Index name (default `kb-index`) |
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint |
-| `AZURE_OPENAI_KEY` | Azure OpenAI key |
 | `AZURE_OPENAI_DEPLOYMENT` | Chat model deployment (default `gpt-5-mini`) |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Telemetry (optional locally) |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Telemetry — Key Vault reference in production, optional locally |
 
 ## Running locally
 
+Local development uses the same keyless flow: `DefaultAzureCredential` falls back to your Azure CLI login, so your own account (holding the same RBAC roles) stands in for the app's identity.
+
 ```bash
+az login                          # once; your account needs the same RBAC roles
+
 # backend
 pip install -r requirements.txt
 python main.py                    # http://localhost:8000
@@ -86,11 +95,12 @@ npm install
 npm run dev                       # http://localhost:5173, proxies /search to :8000
 ```
 
-Create a `.env` in the project root with the variables above. The app uses the same cloud search index and models locally as in production.
+Create a `.env` in the project root with the endpoint variables above — no keys required. The app uses the same cloud search index and models locally as in production.
 
 ## Project history
 
 - **v1:** In-memory RAG — ChromaDB vector store rebuilt on every startup, local file parsing (`chunker.py`, `knowledge_base.py`, `vector_store.py`), direct Anthropic API. Worked, but cold starts were slow, the index died with the process, and secrets lived in a `.env` file.
-- **v2 (current):** Retrieval moved to Azure AI Search with integrated vectorization (three modules deleted outright), generation moved to Azure OpenAI, KB moved to Blob Storage, deploys automated with GitHub Actions, and Application Insights added for observability.
+- **v2:** Retrieval moved to Azure AI Search with integrated vectorization (three modules deleted outright), generation moved to Azure OpenAI, KB moved to Blob Storage, deploys automated with GitHub Actions, and Application Insights added for observability.
+- **v3 (current):** All API keys eliminated. The app authenticates with a system-assigned Managed Identity over Entra ID; permissions are RBAC role assignments; the last secret moved to Key Vault. Debugging this involved inspecting the identity's actual token over SSH to verify which principal the app presented — the kind of data-plane RBAC troubleshooting that doesn't show up in tutorials.
 
-The full migration plan is in [`AZURE_MIGRATION_PLAN.md`](AZURE_MIGRATION_PLAN.md).
+The full migration plans are in [`AZURE_MIGRATION_PLAN.md`](AZURE_MIGRATION_PLAN.md) and [`MANAGED_IDENTITY_KEYVAULT_PLAN.md`](MANAGED_IDENTITY_KEYVAULT_PLAN.md).
